@@ -44,8 +44,33 @@ def parse_comm(lines):
     print '\n'.join(req + resp)
     return ret
 
+# Based on stdlib's commands.py mkarg function.
+def mkarg(x):
+    spaces = ' \t\n\r'
+    quotable = '\'\"' + spaces
+    if not any(map(lambda c: c in quotable, x)):
+        return x
+    ret = []
+    i = 0
+    while i < len(x):
+        if x[i] == "\\":
+            ret.extend(x[i:i+2])
+            i += 2
+        elif x[i] in spaces:
+            ret.append(x[i])
+            i += 1
+        elif x[i] in quotable:
+            ret.append('\\')
+            ret.append(x[i])
+            i += 1
+        else:
+            ret.append(x[i])
+            i += 1
+    return "'%s'" % ''.join(ret)
+
 def main():
     command = ['curl', '-vs'] + sys.argv[1:]
+    print " ".join(['$ curl'] + map(mkarg, command[1:]))
     pipe = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE)
     (stdout, stderr) = pipe.communicate()
     if pipe.wait() != 0:
