@@ -1,0 +1,430 @@
+<h1>HTTP Document API</h1>
+<p>This is an introduction to the CouchDB HTTP document API.</p>
+<h2>Naming/Addressing</h2>
+<p>Documents stored in a CouchDB have a DocID. DocIDs are case-sensitive string identifiers that uniquely identify a document. Two documents cannot have the same identifier in the same database, they are considered the same document.</p>
+<pre><code>http://localhost:5984/test/some_doc_id
+http://localhost:5984/test/another_doc_id
+http://localhost:5984/test/BA1F48C5418E4E68E5183D5BD1F06476
+</code></pre>
+<p>The above URLs point to <em>some_doc_id</em>, <em>another_doc_id</em> and <em>BA1F48C5418E4E68E5183D5BD1F06476</em> in the database <em>test</em>.</p>
+<h2>Documents</h2>
+<p>A CouchDB document is simply a JSON object. You can use any JSON structure with nesting. You can fetch the document's revision information by adding <em>?revs=true</em> or <em>?revs_info=true</em> to the get request.</p>
+<p>Here are two simple examples of documents:</p>
+<pre><code>{
+ "_id":"discussion_tables",
+ "_rev":"D1C946B7",
+ "Sunrise":true,
+ "Sunset":false,
+ "FullHours":[1,2,3,4,5,6,7,8,9,10],
+ "Activities": [
+   {"Name":"Football", "Duration":2, "DurationUnit":"Hours"},
+   {"Name":"Breakfast", "Duration":40, "DurationUnit":"Minutes", "Attendees":["Jan", "Damien", "Laura", "Gwendolyn", "Roseanna"]}
+ ]
+}
+
+{
+ "_id":"some_doc_id",
+ "_rev":"D1C946B7",
+ "Subject":"I like Plankton",
+ "Author":"Rusty",
+ "PostedDate":"2006-08-15T17:30:12-04:00",
+ "Tags":["plankton", "baseball", "decisions"],
+ "Body":"I decided today that I don't like baseball. I like plankton."
+}
+</code></pre>
+<h3>Special Fields</h3>
+<p>Note that any top-level fields with a name that starts with a <em>_</em> prefix are reserved for use by CouchDB itself. Also see [[Reserved_words]]. Currently (0.10+) reserved fields are:</p>
+<p>||<strong>Field Name</strong>||<strong>Description</strong>||
+  ||<em>_id</em>|| The unique identifier of the document (<strong>mandatory</strong> and <strong>immutable</strong>)||
+  ||<em>_rev</em>|| The current MVCC-token/revision of this document (<strong>mandatory</strong> and <strong>immutable</strong>)||
+  ||<em>_attachments</em>|| If the document has attachments, _attachments holds a (meta-)data structure (see section on [[HTTP_Document_API#Attachments||attachments]])||
+  ||<em>_deleted</em>|| Indicates that this document has been deleted and will be removed on next compaction run||
+  ||<em>_revisions</em>|| If the document was requested with <em>?revs=true</em> this field will hold a simple list of the documents history||
+  ||<em>_rev_infos</em>|| Similar to <em>_revisions</em>, but more details about the history and the availability of ancient versions of the document||
+  ||<em>_conflicts</em>|| Information about conflicts||
+  ||<em>_deleted_conflicts</em>|| Information about conflicts||</p>
+<h4>Document IDs</h4>
+<p>Document IDs don't have restrictions on what characters can be used. Although it should work, it is recommended to use non-special characters for document IDs. Using special characters you have to be aware of proper URL en-/decoding. Documents prefixed with <em>_</em> are special documents:</p>
+<p>||<strong>Document ID prefix</strong>||<strong>Description</strong>||
+  ||<em>_design/</em>|| are [[DesignDocuments]] ||
+  ||<em>_local/</em>|| are not being replicated (local documents) and used for [[Replication||replication]] checkpointing. ||</p>
+<p>You can have <strong>/</strong> as part of the document ID but if you refer to a document in a URL you must always encode it as <strong>%2F</strong>. One special case is <strong>_design/</strong> documents, those accept either <strong>/</strong> or <strong>%2F</strong> for the <strong>/</strong> after <em>_design</em>, although <strong>/</strong> is preferred and <strong>%2F</strong> is still needed for the rest of the DocID.</p>
+<h2>Working With Documents Over HTTP</h2>
+<h3>GET</h3>
+<p>To retrieve a document, simply perform a <em>GET</em> operation at the document's URL:</p>
+<pre><code>GET /somedatabase/some_doc_id HTTP/1.0
+</code></pre>
+<p>Here is the server's response:</p>
+<pre><code>HTTP/1.1 200 OK
+Date: Thu, 17 Aug 2006 05:39:28 +0000GMT
+Content-Type: application/json
+Connection: close
+
+{
+ "_id":"some_doc_id",
+ "_rev":"946B7D1C",
+ "Subject":"I like Plankton",
+ "Author":"Rusty",
+ "PostedDate":"2006-08-15T17:30:12Z-04:00",
+ "Tags":["plankton", "baseball", "decisions"],
+ "Body":"I decided today that I don't like baseball. I like plankton."
+}
+</code></pre>
+<h4>Accessing Previous Revisions</h4>
+<p>See DocumentRevisions for additional notes on revisions.</p>
+<p>The above example gets the current revision. You may be able to get a specific revision by using the following syntax:</p>
+<pre><code>GET /somedatabase/some_doc_id?rev=946B7D1C HTTP/1.0
+</code></pre>
+<p>To find out what revisions are available for a document, you can do:</p>
+<pre><code>GET /somedatabase/some_doc_id?revs=true HTTP/1.0
+</code></pre>
+<p>This returns the current revision of the document, but with an additional field, <em>_revisions</em>, the value being a list of the available revision IDs. <em>Note though that not every of those revisions of the document is necessarily still available.</em> For example, the content of an old revision get removed by compacting the database, or it may only exist in a different database if it was replicated.</p>
+<p>To get more detailed information about the available document revisions, use the <em>revs_info</em> parameter instead. In this case, the JSON result will contain a <em>_revs_info</em> property, which is an array of objects, for example:</p>
+<pre><code>{
+  "_revs_info": [
+    {"rev": "123456", "status": "disk"},
+    {"rev": "234567", "status": "missing"},
+    {"rev": "345678", "status": "deleted"},
+  ]
+}
+</code></pre>
+<p>Here, <em>disk</em> means the revision content is stored on disk and can still be retrieved. The other values indicate that the content of that revision is not available.</p>
+<p>You can fetch the bodies of multiple revisions at once using the parameter <code>open_revs=["rev1","rev2",...]</code>, or you can fetch all leaf revisions using <code>open_revs=all</code> (see [[Replication_and_conflicts]]). The JSON returns an array of objects with an "ok" key pointing to the document, or a "missing" key pointing to the rev string.</p>
+<pre><code>[
+{"missing":"1-fbd8a6da4d669ae4b909fcdb42bb2bfd"},
+{"ok":{"_id":"test","_rev":"2-5bc3c6319edf62d4c624277fdd0ae191","hello":"foo"}}
+]
+</code></pre>
+<h3>PUT</h3>
+<p>To create new document you can either use a <em>POST</em> operation or a <em>PUT</em> operation. To create/update a named document using the PUT operation, the URL must point to the document's location.</p>
+<p>The following is an example HTTP <em>PUT</em>. It will cause the CouchDB server to generate a new revision ID and save the document with it.</p>
+<pre><code>PUT /somedatabase/some_doc_id HTTP/1.0
+Content-Length: 245
+Content-Type: application/json
+
+{
+  "Subject":"I like Plankton",
+  "Author":"Rusty",
+  "PostedDate":"2006-08-15T17:30:12-04:00",
+  "Tags":["plankton", "baseball", "decisions"],
+  "Body":"I decided today that I don't like baseball. I like plankton."
+}
+</code></pre>
+<p>Here is the server's response.</p>
+<pre><code>HTTP/1.1 201 Created
+Date: Thu, 17 Aug 2006 05:39:28 +0000GMT
+Content-Type: application/json
+Connection: close
+
+{"ok": true, "id": "some_doc_id", "rev": "946B7D1C"}
+</code></pre>
+<p>To update an existing document, you also issue a <em>PUT</em> request. In this case, the JSON body must contain a <em>_rev</em> property, which lets CouchDB know which revision the edits are based on. If the revision of the document currently stored in the database doesn't match, then a <em>409</em> conflict error is returned.</p>
+<p>If the revision number does match what's in the database, a new revision number is generated and returned to the client.</p>
+<p>For example:</p>
+<pre><code>PUT /somedatabase/some_doc_id HTTP/1.0
+Content-Length: 245
+Content-Type: application/json
+
+{
+  "_id":"some_doc_id",
+  "_rev":"946B7D1C",
+  "Subject":"I like Plankton",
+  "Author":"Rusty",
+  "PostedDate":"2006-08-15T17:30:12-04:00",
+  "Tags":["plankton", "baseball", "decisions"],
+  "Body":"I decided today that I don't like baseball. I like plankton."
+}
+</code></pre>
+<p>Here is the server's response if what is stored in the database is revision <em>946B7D1C</em> of document <em>some_doc_id</em>.</p>
+<pre><code>HTTP/1.1 201 Created
+Date: Thu, 17 Aug 2006 05:39:28 +0000GMT
+Content-Type: application/json
+Connection: close
+
+{"ok":true, "id":"some_doc_id", "rev":"2774761002"}
+</code></pre>
+<p>And here is the server's response if there is an update conflict (what is currently stored in the database is not revision <em>946B7D1C</em> of document <em>some_doc_id</em>).</p>
+<pre><code>HTTP/1.1 409 Conflict
+Date: Thu, 17 Aug 2006 05:39:28 +0000GMT
+Content-Length: 33
+Connection: close
+
+{"error":"conflict","reason":"Document update conflict."}
+</code></pre>
+<p>There is a query option <em>batch=ok</em> which can be used to achieve higher throughput at the cost of lower guarantees. When a <em>PUT</em> (or a document <em>POST</em> as described below) is sent using this option, it is not immediately written to disk. Instead it is stored in memory on a per-user basis for a second or so (or the number of docs in memory reaches a certain point). After the threshold has passed, the docs are committed to disk. Instead of waiting for the doc to be written to disk before responding, CouchDB sends an HTTP <em>202 Accepted</em> response immediately.</p>
+<p><em>batch=ok</em> is not suitable for crucial data, but it ideal for applications like logging which can accept the risk that a small proportion of updates could be lost due to a crash. Docs in the batch can also be flushed manually using the <em>_ensure_full_commit</em> API.</p>
+<h3>POST</h3>
+<p>The <em>POST</em> operation can be used to create a new document with a server generated DocID. To create a named document, use the <em>PUT</em> method instead. It is recommended that you avoid <em>POST</em> when possible, because proxies and other network intermediaries will occasionally resend <em>POST</em> requests, which can result in duplicate document creation. If your client software is not capable of guaranteeing uniqueness of generated UUIDs, use a <em>GET</em> to <em>/_uuids?count=100</em> to retrieve a list of document IDs for future <em>PUT</em> requests. Please note that the <em>/_uuids</em>-call does not check for existing document ids; collision-detection happens when you are trying to save a document.</p>
+<p>The following is an example HTTP <em>POST</em>. It will cause the CouchDB server to generate a new DocID and revision ID and save the document with it.</p>
+<pre><code>POST /somedatabase/ HTTP/1.0
+Content-Length: 245
+Content-Type: application/json
+
+{
+  "Subject":"I like Plankton",
+  "Author":"Rusty",
+  "PostedDate":"2006-08-15T17:30:12-04:00",
+  "Tags":["plankton", "baseball", "decisions"],
+  "Body":"I decided today that I don't like baseball. I like plankton."
+}
+</code></pre>
+<p>Here is the server's response:</p>
+<pre><code>HTTP/1.1 201 Created
+Date: Thu, 17 Aug 2006 05:39:28 +0000GMT
+Content-Type: application/json
+Connection: close
+
+{"ok":true, "id":"123BAC", "rev":"946B7D1C"}
+</code></pre>
+<h3>DELETE</h3>
+<p>To delete a document, perform a <em>DELETE</em> operation at the document's location, passing the <em>rev</em> parameter with the document's current revision. If successful, it will return the revision id for the deletion stub.</p>
+<pre><code>DELETE /somedatabase/some_doc?rev=1582603387 HTTP/1.0
+</code></pre>
+<p>As an alternative you can submit the <em>rev</em> parameter with the etag header field <em>If-Match</em>.</p>
+<pre><code>DELETE /somedatabase/some_doc HTTP/1.0
+If-Match: "1582603387"
+</code></pre>
+<p>And the response:</p>
+<pre><code>HTTP/1.1 200 OK
+Date: Thu, 17 Aug 2006 05:39:28 +0000GMT
+Content-Type: application/json
+Connection: close
+
+{"ok":true,"rev":"2839830636"}
+</code></pre>
+<h3>COPY</h3>
+<p>Note that this is a non-standard extension to HTTP.</p>
+<p>You can copy documents by sending an HTTP COPY request. This allows you to duplicate the contents (and attachments) of a document to a new document under a different document id without first retrieving it from CouchDB. Use the <em>Destination</em> header to specify the document that you want to copy to (the target document).</p>
+<p>It is not possible to copy documents between databases and it is not (yet) possible to perform bulk copy operations.</p>
+<pre><code>COPY /somedatabase/some_doc HTTP/1.1
+Destination: some_other_doc
+</code></pre>
+<p>If you want to overwrite an existing document, you need to specify the target document's revision with a <em>rev</em> parameter in the <em>Destination</em> header:</p>
+<pre><code>COPY /somedatabase/some_doc HTTP/1.1
+Destination: some_other_doc?rev=rev_id
+</code></pre>
+<p>The response in both cases includes the target document's revision:</p>
+<pre><code>HTTP/1.1 201 Created
+Server: CouchDB/0.9.0a730122-incubating (Erlang OTP/R12B)
+Etag: "355068078"
+Date: Mon, 05 Jan 2009 11:12:49 GMT
+Content-Type: text/plain;charset=utf-8
+Content-Length: 41
+Cache-Control: must-revalidate
+
+{"ok":true,"id":"some_other_doc","rev":"355068078"}
+</code></pre>
+<h3>MOVE</h3>
+<p>For a ~6 month period CouchDB trunk between versions 0.8 and 0.9 included the nonstandard MOVE method. Since MOVE is really just COPY &amp; DELETE and CouchDB can not reasonably guarantee atomicity between the COPY &amp; MOVE operations on a single or on multiple nodes, this was removed before the release of CouchDB 0.9.</p>
+<h3>Bulk Docs</h3>
+<p>For information about editing multiple documents at the same time, see [[HTTP_Bulk_Document_API]]</p>
+<h2>All Documents</h2>
+<p>To get a listing of all documents in a database, use the special <em>_all_docs</em> URI. This is a specialized View so the Querying Options of the [[HTTP_view_API]] apply here.</p>
+<pre><code>GET somedatabase/_all_docs HTTP/1.0
+</code></pre>
+<p>Will return a listing of all documents and their revision IDs, ordered by DocID (case sensitive):</p>
+<pre><code>HTTP/1.1 200 OK
+Date: Thu, 17 Aug 2006 05:39:28 +0000GMT
+Content-Type: application/json
+Connection: close
+
+{
+  "total_rows": 3, "offset": 0, "rows": [
+    {"id": "doc1", "key": "doc1", "value": {"rev": "4324BB"}},
+    {"id": "doc2", "key": "doc2", "value": {"rev":"2441HF"}},
+    {"id": "doc3", "key": "doc3", "value": {"rev":"74EC24"}}
+  ]
+}
+</code></pre>
+<p>Use the query argument <em>descending=true</em> to reverse the order of the output table:</p>
+<p>Will return the same as before but in reverse order:</p>
+<pre><code>HTTP/1.1 200 OK
+Date: Thu, 17 Aug 2006 05:39:28 +0000GMT
+Content-Type: application/json
+Connection: close
+
+{
+  "total_rows": 3, "offset": 0, "rows": [
+    {"id": "doc3", "key": "doc3", "value": {"rev":"74EC24"}}
+    {"id": "doc2", "key": "doc2", "value": {"rev":"2441HF"}},
+    {"id": "doc1", "key": "doc1", "value": {"rev": "4324BB"}},
+  ]
+}
+</code></pre>
+<p>The query string parameters <em>startkey</em>, <em>endkey</em> and <em>limit</em> may also be used to limit the result set. For example:</p>
+<pre><code>GET somedatabase/_all_docs?startkey="doc2"&amp;limit=2 HTTP/1.0
+</code></pre>
+<p>Will return:</p>
+<pre><code>HTTP/1.1 200 OK
+Date: Thu, 17 Aug 2006 05:39:28 +0000GMT
+Content-Type: application/json
+Connection: close
+
+{
+  "total_rows": 3, "offset": 1, "rows": [
+    {"id": "doc2", "key": "doc2", "value": {"rev":"2441HF"}},
+    {"id": "doc3", "key": "doc3", "value": {"rev":"74EC24"}}
+  ]
+}
+</code></pre>
+<p>Use <em>endkey</em> if you are interested  in a specific range of documents:</p>
+<pre><code>GET somedatabase/_all_docs?startkey="doc2"&amp;endkey="doc3" HTTP/1.0
+</code></pre>
+<p>This will get keys inbetween and including doc2 and doc3; e.g. <em>doc2-b</em> and <em>doc234</em>.</p>
+<p>Both approaches can be combined with <em>descending</em>:</p>
+<pre><code>GET somedatabase/_all_docs?startkey="doc2"&amp;limit=2&amp;descending=true HTTP/1.0
+</code></pre>
+<p>Will return:</p>
+<pre><code>HTTP/1.1 200 OK
+Date: Thu, 17 Aug 2006 05:39:28 +0000GMT
+Content-Type: application/json
+Connection: close
+
+{
+  "total_rows": 3, "offset": 1, "rows": [
+    {"id": "doc3", "key": "doc3", "value": {"rev":"74EC24"}}
+    {"id": "doc2", "key": "doc2", "value": {"rev":"2441HF"}},
+  ]
+}
+</code></pre>
+<p>If you add <em>include_docs=true</em> to a request to <em>_all_docs</em> not only metadata but also the documents themselves are returned.</p>
+<h2>all_docs_by_seq</h2>
+<p>This allows you to see all the documents that were updated and deleted, in the order these actions are done:</p>
+<pre><code>GET somedatabase/_all_docs_by_seq HTTP/1.0
+</code></pre>
+<p>Will return:</p>
+<pre><code>HTTP/1.1 200 OK
+Date: Fri, 8 May 2009 11:07:02 +0000GMT
+Content-Type: application/json
+Connection: close
+
+{
+  "total_rows": 4, "offset": 0, "rows": [
+    {"id": "doc1", "key": "1", "value": {"rev":"1-4124667444"}},
+    {"id": "doc2", "key": "2", "value": {"rev":"1-1815587255"}},
+    {"id": "doc3", "key": "3", "value": {"rev":"1-1750227892"}},
+    {"id": "doc4", "key": "4", "value": {"rev":"2-524044848", "deleted": true}}
+  ]
+}
+</code></pre>
+<p>All the view parameters work on _all_docs_by_seq, such as startkey, include_docs etc. However, note that the startkey is exclusive when applied to this view. This allows for a usage pattern where the startkey is set to the sequence id of the last doc returned by the previous query. As the startkey is exclusive, the same document won't be processed twice.</p>
+<h2>Attachments</h2>
+<p>Documents can have attachments just like email. There are two ways to use attachments. The first one is inline with your document and it described first. The second one is a separate REST API for attachments that is described a little further down.</p>
+<p>A note on attachment names: Attachments may have embedded <strong>/</strong> characters that are sent unescaped to CouchDB. You can use this to provide a subtree of attachments under a document. A DocID must have any <strong>/</strong> escaped as <strong>%2F</strong>. So if you have document <em>a/b/c</em> with an attachment <em>d/e/f.txt</em>, you would be able to access it at [[http://couchdb/db/a/b/c/d/e/f.txt|http://couchdb/db/a%2fb%2fc/d/e/f.txt]] .</p>
+<h3>Inline Attachments</h3>
+<p>On creation, attachments go into a special <em>_attachments</em> attribute of the document. They are encoded in a JSON structure that holds the name, the content_type and the base64 encoded data of an attachment. A document can have any number of attachments.</p>
+<p>When retrieving documents, the attachment's actual data is not included, only the metadata. The actual data has to be fetched separately, using a special URI.</p>
+<p>If you need to access attachments with the document in one request, you can pass in the <code>?attachments=true</code> URL parameter to get the data included in the JSON in the base64 encoded form. Since this puts a significant burden on CouchDB when you request this, you're not advised to use this feature unless you know what you are doing :)</p>
+<p>Creating a document with an attachment:</p>
+<pre><code>{
+  "_id":"attachment_doc",
+  "_attachments":
+  {
+    "foo.txt":
+    {
+      "content_type":"text\/plain",
+      "data": "VGhpcyBpcyBhIGJhc2U2NCBlbmNvZGVkIHRleHQ="
+    }
+  }
+}
+</code></pre>
+<p>Please note that any base64 data you send has to be on <strong>a single line of characters</strong>, so pre-process your data to remove any carriage returns and newlines.</p>
+<p>Requesting said document:</p>
+<pre><code>GET /database/attachment_doc
+</code></pre>
+<p>CouchDB replies:</p>
+<pre><code>{
+  "_id":"attachment_doc",
+  "_rev":1589456116,
+  "_attachments":
+  {
+    "foo.txt":
+    {
+      "stub":true,
+      "content_type":"text\/plain",
+      "length":29
+    }
+  }
+}
+</code></pre>
+<p>Note that the <em>"stub":true</em> attribute denotes that this is not the complete attachment. Also, note the length attribute added automatically. When you update the document you must include the attachment stubs or CouchDB will delete the attachment.</p>
+<p>Requesting the attachment:</p>
+<pre><code>GET /database/attachment_doc/foo.txt
+</code></pre>
+<p>CouchDB returns:</p>
+<pre><code>This is a base64 encoded text
+</code></pre>
+<p>Automatically decoded!</p>
+<h3>Multiple Attachments</h3>
+<p>Creating a document with an attachment:</p>
+<pre><code>{
+  "_id":"attachment_doc",
+  "_attachments":
+  {
+    "foo.txt":
+    {
+      "content_type":"text\/plain",
+      "data": "VGhpcyBpcyBhIGJhc2U2NCBlbmNvZGVkIHRleHQ="
+    },
+
+   "bar.txt":
+    {
+      "content_type":"text\/plain",
+      "data": "VGhpcyBpcyBhIGJhc2U2NCBlbmNvZGVkIHRleHQ="
+    }
+  }
+}
+</code></pre>
+<h3>Standalone Attachments</h3>
+<p>Note: This was added in version 0.9 of CouchDB. It is not available in earlier version.</p>
+<p>CouchDB allows to create, change and delete attachments without touching the actual document. As a bonus feature, you do not have to base64 encode your data. This can significantly speed up requests since CouchDB and your client do not have to do the base64 conversion.</p>
+<p>You need to specify a MIME type using the Content-Type header. CouchDB will serve the attachment with the specified Content-Type when asked.</p>
+<p>To create an attachment:</p>
+<pre><code>PUT somedatabase/document/attachment?rev=123 HTTP/1.0
+Content-Length: 245
+Content-Type: image/jpeg
+
+&lt;JPEG data&gt;
+</code></pre>
+<p>CouchDB replies:</p>
+<pre><code>{"ok": true, "id": "document", "rev": "765B7D1C"}
+</code></pre>
+<p>Note that you can do this on a non-existing document. The document and attachment will be created implicitly for you. A revision id must not be specified in this case.</p>
+<p>To change an attachment:</p>
+<pre><code>PUT somedatabase/document/attachment?rev=765B7D1C HTTP/1.0
+Content-Length: 245
+Content-Type: image/jpeg
+
+&lt;JPEG data&gt;
+</code></pre>
+<p>CouchDB replies:</p>
+<pre><code>{"ok": true, "id": "document", "rev": "766FC88G"}
+</code></pre>
+<p>To delete an attachment:</p>
+<pre><code>DELETE somedatabase/document/attachment?rev=765B7D1C HTTP/1.0
+</code></pre>
+<p>CouchDB replies:</p>
+<pre><code>{"ok":true,"id":"document","rev":"519558700"}
+</code></pre>
+<p>To retrieve an attachment:</p>
+<pre><code>GET somedatabase/document/attachment HTTP/1.0
+</code></pre>
+<p>CouchDB replies</p>
+<pre><code>Content-Type:image/jpeg
+
+  &lt;JPEG data&gt;
+</code></pre>
+<h2>ETags/Caching</h2>
+<p>CouchDB sends an <em>ETag</em> Header for document requests. The ETag Header is simply the document's revision in quotes.</p>
+<p>For example, a <em>GET</em> request:</p>
+<pre><code>GET /database/123182719287
+</code></pre>
+<p>Results in a reply with the following headers:</p>
+<pre><code>cache-control: no-cache,
+pragma: no-cache
+expires: Tue, 13 Nov 2007 23:09:50 GMT
+transfer-encoding: chunked
+content-type: text/plain;charset=utf-8
+etag: "615790463"
+</code></pre>
+<p><em>POST</em> requests also return an <em>ETag</em> header for either newly created or updated documents.</p>
