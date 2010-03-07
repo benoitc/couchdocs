@@ -1,34 +1,59 @@
-template: index.html
+template: page.html
 
-# HTTP Document API
+HTTP Document API
+=================
+
 This is an introduction to the CouchDB HTTP document API.
 
-## Naming/Addressing
-Documents stored in a CouchDB have a DocID. DocIDs are case-sensitive string identifiers that uniquely identify a document. Two documents cannot have the same identifier in the same database, they are considered the same document.
+Naming/Addressing
+-----------------
+
+Documents stored in a CouchDB have a DocID. DocIDs are case-sensitive string
+identifiers that uniquely identify a document. Two documents cannot have the
+same identifier in the same database, they are considered the same document.
 
     http://localhost:5984/test/some_doc_id
     http://localhost:5984/test/another_doc_id
     http://localhost:5984/test/BA1F48C5418E4E68E5183D5BD1F06476
 
-The above URLs point to *some_doc_id*, *another_doc_id* and *BA1F48C5418E4E68E5183D5BD1F06476* in the database *test*.
+The above URLs point to `some_doc_id`, `another_doc_id` and
+`BA1F48C5418E4E68E5183D5BD1F06476` in the database `test`.
 
-## Documents
-A CouchDB document is simply a JSON object. You can use any JSON structure with nesting. You can fetch the document's revision information by adding *?revs=true* or *?revs_info=true* to the get request.
+Documents
+---------
+
+A CouchDB document is simply a JSON object. You can use any JSON structure
+with nesting. You can fetch the document's revision information by adding
+`?revs=true` or `?revs_info=true` to the get request.
 
 Here are two simple examples of documents:
 
     {
-     "_id":"discussion_tables",
-     "_rev":"D1C946B7",
-     "Sunrise":true,
-     "Sunset":false,
-     "FullHours":[1,2,3,4,5,6,7,8,9,10],
-     "Activities": [
-       {"Name":"Football", "Duration":2, "DurationUnit":"Hours"},
-       {"Name":"Breakfast", "Duration":40, "DurationUnit":"Minutes", "Attendees":["Jan", "Damien", "Laura", "Gwendolyn", "Roseanna"]}
-     ]
+        "_id": "discussion_tables",
+        "_rev": "D1C946B7"
+        "Activities": [
+            {
+                "Duration": 2, 
+                "DurationUnit": "Hours", 
+                "Name": "Football"
+            }, 
+            {
+                "Attendees": [
+                    "Jan", 
+                    "Damien", 
+                    "Laura", 
+                    "Gwendolyn", 
+                    "Roseanna"
+                ], 
+                "Duration": 40, 
+                "DurationUnit": "Minutes", 
+                "Name": "Breakfast"
+            }
+        ], 
+        "FullHours": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        "Sunrise": true, 
+        "Sunset": false, 
     }
-
 
     {
      "_id":"some_doc_id",
@@ -40,37 +65,96 @@ Here are two simple examples of documents:
      "Body":"I decided today that I don't like baseball. I like plankton."
     }
 
-### Special Fields
-Note that any top-level fields with a name that starts with a *_* prefix are reserved for use by CouchDB itself. Also see [[Reserved_words]]. Currently (0.10+) reserved fields are:
+### Special Fields ###
 
-  ||**Field Name**||**Description**||
-  ||*_id*|| The unique identifier of the document (**mandatory** and **immutable**)||
-  ||*_rev*|| The current MVCC-token/revision of this document (**mandatory** and **immutable**)||
-  ||*_attachments*|| If the document has attachments, _attachments holds a (meta-)data structure (see section on [[HTTP_Document_API#Attachments||attachments]])||
-  ||*_deleted*|| Indicates that this document has been deleted and will be removed on next compaction run||
-  ||*_revisions*|| If the document was requested with *?revs=true* this field will hold a simple list of the documents history||
-  ||*_rev_infos*|| Similar to *_revisions*, but more details about the history and the availability of ancient versions of the document||
-  ||*_conflicts*|| Information about conflicts||
-  ||*_deleted_conflicts*|| Information about conflicts||
+Note that any top-level fields with a name that starts with a `_` prefix are
+reserved for use by CouchDB itself. Also see [Reserved Words][reserved_words].
+Current (0.10+) reserved fields are:
 
-#### Document IDs
-Document IDs don't have restrictions on what characters can be used. Although it should work, it is recommended to use non-special characters for document IDs. Using special characters you have to be aware of proper URL en-/decoding. Documents prefixed with *_* are special documents:
+<table>
+  <tr>
+    <th>Field Name</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>_id</td>
+    <td>The unique identifier of the document.</td>
+  </tr>
+  <tr>
+    <td>_rev</td>
+    <td>The current MVCC-token/revision of this document</td>
+  </tr>
+  <tr>
+    <td>_attachments</td>
+    <td>
+      If the document has attachments, _attachments holds a (meta-)data
+      structure (see the [attachments api][doc_api])
+    </td>
+  </tr>
+  <tr>
+    <td>_deleted</td>
+    <td>
+      Indicates that this document has been deleted and will be removed on
+      next compaction run
+    </td>
+  </tr>
+  <tr>
+    <td>_revisions</td>
+    <td>
+      If the document was requested with *?revs=true* this field will hold
+      a simple list of the documents history
+    </td>
+  </tr>
+  <tr>
+    <td>_rev_infos</td>
+    <td>
+      Similar to *_revisions*, but more details about the history and the
+      availability of ancient versions of the document
+    </td>
+  </tr>
+  <tr>
+    <td>_conflicts</td>
+    <td>Information about conflicts</td>
+  </tr>
+  <tr>
+    <td>_deleted_conflicts</td>
+    <td>Information about conflicts</td>
+  </tr>
+</table>
 
-  ||**Document ID prefix**||**Description**||
-  ||*_design/*|| are [[DesignDocuments]] ||
-  ||*_local/*|| are not being replicated (local documents) and used for [[Replication||replication]] checkpointing. ||
+#### Document IDs ####
 
-You can have **/** as part of the document ID but if you refer to a document in a URL you must always encode it as **%2F**. One special case is **_design/** documents, those accept either **/** or **%2F** for the **/** after *_design*, although **/** is preferred and **%2F** is still needed for the rest of the DocID.
+Document IDs don't have restrictions on what characters can be used. Although
+it should work, it is recommended to use non-special characters for document
+IDs. Using special characters you have to be aware of proper URL en-/decoding.
+Documents prefixed with *_* are special documents:
 
-## Working With Documents Over HTTP
+<table>
+  <tr>
+    <th>Document ID prefix</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>_design/</td>
+    <td>are [Design Documents][design_docs]</td>
+  </tr>
+  <tr>
+    <td>_local/</td>
+    <td>are [Local Documents]</td>
+  </tr>
+</table>
+
+You can have `/` as part of the document ID but if you refer to a document in a URL you must always encode it as `%2F`. One special case is `_design/` documents, those accept either `/` or `%2F` for the `/` after `_design`, although `/` is preferred and `%2F` is still needed for the rest of the DocID.
+
+Working With Documents Over HTTP
+--------------------------------
+
 ### GET
-To retrieve a document, simply perform a *GET* operation at the document's URL:
-
+To retrieve a document, simply perform a `GET` operation at the document's URL:
 
     GET /somedatabase/some_doc_id HTTP/1.0
 
 Here is the server's response:
-
 
     HTTP/1.1 200 OK
     Date: Thu, 17 Aug 2006 05:39:28 +0000GMT
@@ -95,7 +179,6 @@ The above example gets the current revision. You may be able to get a specific r
     GET /somedatabase/some_doc_id?rev=946B7D1C HTTP/1.0
 
 To find out what revisions are available for a document, you can do:
-
 
     GET /somedatabase/some_doc_id?revs=true HTTP/1.0
 

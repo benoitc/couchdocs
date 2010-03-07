@@ -2,6 +2,25 @@ ext: .css
 
 body
 {
-  width: 800px;
+  width: 600px;
   margin: 0 auto;
+}
+
+table tr th
+{
+    text-align: left;
+    white-space: nowrap;
+}
+
+a
+{
+    text-decoration: none;
+}
+
+pre
+{
+    padding: 5px;
+    border-top: 2px solid gray;
+    border-bottom: 2px solid gray;
+    background-color: #DDD;
 }
