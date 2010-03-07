@@ -49,8 +49,9 @@ class Site(object):
             page = Page(self, f, curr_path, tgt_path)
             if not page.needed():
                 continue
-
-            print "Page: %s" % page.source
+            
+            path = os.path.relpath(page.source, self.cfg.INPUT_PATH)
+            print "Page: %s" % path
             page.write()
             
     def get_template(self, name):
