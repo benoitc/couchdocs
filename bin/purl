@@ -58,7 +58,7 @@ def main():
         if r.headers['content-type'].find(pname) >= 0:
             print p(r.body)
             return
-    return r.body
+    print r.body
     
 if __name__ == '__main__':
     main()
