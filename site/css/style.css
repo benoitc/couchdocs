@@ -1,10 +1,5 @@
 ext: .css
 
-body 
-{
-  color: red;
-}
-
 div#container
 {
   display: block;
