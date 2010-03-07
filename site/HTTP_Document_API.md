@@ -1,3 +1,5 @@
+template: index.html
+
 # HTTP Document API
 This is an introduction to the CouchDB HTTP document API.
 
