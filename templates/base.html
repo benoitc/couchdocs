@@ -3,18 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <title>CouchDocs - {% block title %}Welcome{% endblock %}</title>
-	<link rel="stylesheet" href="css/style.css" type="text/css" media="screen" />
+    <link rel="stylesheet" href="css/style.css" type="text/css" media="screen" />
   </head>
   <body>
-	<div class="container"> 
-	  <div id="header"> 
+    <div class="container"> 
+      <div id="header"> 
           <h1>CouchDocs</h1>
-	  </div>
-	  {% block extra %}{% endblock %}
+      </div>
+      {% block extra %}{% endblock %}
       {% block body %}{% endblock %}
       <div id="footer">
         <p>Hosted on <a href="http://github.com/">Github</a></p>
       </div>
-	</div>
+    </div>
   </body>
 </html>
