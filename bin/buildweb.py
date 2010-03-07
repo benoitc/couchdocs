@@ -12,7 +12,6 @@ import optparse as op
 import os
 import sys
 
-from docutils.core import publish_parts
 from jinja2 import Environment
 from jinja2.loaders import FileSystemLoader
 from jinja2.utils import open_if_exists
@@ -93,7 +92,7 @@ class Page(object):
         self.target = os.path.join(tgt_path, "%s%s" % (basename, newext))
                 
     def url(self):
-        path = self.target.split(self.cfg.OUTPUT_PATH)[1].lstrip('/')
+        path = self.target.split(self.site.cfg.OUTPUT_PATH)[1].lstrip('/')
         return "/".join([self.site.url, path])
 
     def needed(self):
@@ -118,11 +117,20 @@ class Page(object):
         if not tmpl_name:
             return self.body
 
-        kwargs = {"cfg": self.cfg, "body": self.body, "url": self.url()}
+        kwargs = {
+            "cfg": self.site.cfg,
+            "body": self.body,
+            "url": self.url()
+        }
         kwargs.update(self.headers)
         return self.site.get_template(tmpl_name).render(kwargs)
 
+    def convert_md(self, body):
+        from markdown import markdown
+        return markdown(body)
+
     def convert_rst(self, body):
+        from docutils.core import publish_parts
         parts = publish_parts(source=body, writer_name="html")
         return parts['html_body']
 
