@@ -19,7 +19,20 @@ Files have metadata headers. See the existing files for examples.
 Building the site
 -----------------
 
-./bin/buildweb.py
+    $ ./bin/buildweb.py
+
+Or, if you have kicker installed (a ruby gem) you can have the site built
+automatically when anything changes:
+
+    $ kicker -e ./bin/buildweb.sh site/ htdocs/ templates/
+
+Viewing the site locally
+------------------------
+
+If you have the WEBrick (another Ruby gem) installed you should be able
+to run the `bin/serve.rb` script and have the site available on port 8080.
+
+    $ ./bin/serve.rb
 
 Uploading the site to Github pages
 ----------------------------------
