@@ -37,7 +37,7 @@ to run the `bin/serve.rb` script and have the site available on port 8080.
 Uploading the site to Github pages
 ----------------------------------
 
-ghp-import -p ./htdocs/
+    $ ghp-import -p ./htdocs/
 
 Requires that you have installed ghp-import which can be found
 [here][ghp-import].
