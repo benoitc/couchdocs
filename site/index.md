@@ -3,4 +3,4 @@ template: index.html
 Woot!
 =====
 
-First commmit.
+First commit.
