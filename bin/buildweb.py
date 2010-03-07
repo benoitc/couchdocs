@@ -56,6 +56,14 @@ class Site(object):
     def get_template(self, name):
         return self.env.get_template(name)
 
+    def template_ts(self):
+        ts = 0
+        for path, dnames, fnames in os.walk(self.cfg.TEMPLATES_PATH):
+            for fn in fnames:
+                fn = os.path.join(path, fn)
+                ts = max(ts, os.stat(fn).st_mtime)
+        return ts
+
 class Page(object):
     
     def __init__(self, site, filename, curr_path, tgt_path):
@@ -102,10 +110,15 @@ class Page(object):
         
         if not os.path.exists(self.target):
             return True
-        
+    
         smtime = os.stat(self.source).st_mtime
         tmtime = os.stat(self.target).st_mtime
-        return smtime > tmtime
+        if tmtime < smtime:
+            return True
+        # Rebuild for a change to any template.
+        if tmtime < self.site.template_ts():
+            return True
+        return False
 
     def write(self):
         contents = self.render()
