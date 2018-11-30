@@ -13,7 +13,7 @@ The following discussions address authentication and authorization concerns:
 
 [[http://thread.gmane.org/gmane.comp.db.couchdb.devel/5325|2009-09-07]] Per-DB Auth Ideas and Proposal
 
-[[http://thread.gmane.org/gmane.comp.db.couchdb.devel/4099|2009-07-10]] : Cookie Auth
+[[https://www.mail-archive.com/dev@couchdb.apache.org/msg03613.html|2009-07-10]] : Cookie Auth
 
 [[http://thread.gmane.org/gmane.comp.db.couchdb.user/2980|2009-07-08]] : CouchDB shared hosting
 
@@ -21,7 +21,7 @@ The following discussions address authentication and authorization concerns:
 
 [[http://www.mail-archive.com/dev@couchdb.apache.org/msg02631.html|2009-04-29 : Baking Cookie-Based Authentication into CouchDB]]
 
-[[http://thread.gmane.org/gmane.comp.db.couchdb.user/2065|2009-04-20]] : Authentication and Authorisation for webmail project  
+[[https://www.mail-archive.com/user@couchdb.apache.org/msg02378.html|2009-04-20]] : Authentication and Authorisation for webmail project  
 
 [[http://thread.gmane.org/gmane.comp.db.couchdb.user/1953|2009-04-12]] : auth using Nginx as proxy
 
